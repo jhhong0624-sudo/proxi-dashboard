@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROXI Dashboard v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#0d0d1a;color:#ddd;min-height:100vh}
+header{background:#0a0a18;border-bottom:2px solid #0af;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+header h1{color:#0af;font-size:1.2em;letter-spacing:2px}
+.hstat{font-size:.75em;color:#666}
+.hstat span{color:#0af}
+main{padding:16px;max-width:1400px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:#111827;border:1px solid #1e3a5f;border-radius:12px;padding:16px;transition:border-color .3s}
+.card.detect-active{border-color:#00a0ff;box-shadow:0 0 12px #00a0ff33}
+.card.prevent-active{border-color:#00e070;box-shadow:0 0 12px #00e07033}
+.card.transition-active{border-color:#ffdd00;box-shadow:0 0 12px #ffdd0033}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-title{font-size:1em;color:#0af;font-weight:bold}
+.card-id{font-size:.75em;color:#555}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72em;font-weight:bold;letter-spacing:1px}
+.badge-detect{background:#003060;color:#00d0ff;border:1px solid #00a0ff}
+.badge-prevent{background:#003020;color:#00ff80;border:1px solid #00d060}
+.badge-transition{background:#302000;color:#ffdd00;border:1px solid #ffaa00;animation:pulse .6s infinite alternate}
+.badge-idle{background:#1a1a1a;color:#666;border:1px solid #333}
+@keyframes pulse{from{opacity:.6}to{opacity:1}}
+.row{display:flex;justify-content:space-between;margin:4px 0;font-size:.82em}
+.lbl{color:#666}
+.val{color:#eee;font-weight:bold}
+.val-hi{color:#0ff}
+.val-green{color:#0f0}
+.section-title{color:#0af;font-size:.75em;letter-spacing:1px;margin:12px 0 6px;border-bottom:1px solid #1e3a5f;padding-bottom:4px}
+/* 모드 버튼 */
+.mode-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.btn{border:none;border-radius:8px;padding:10px;font-size:.85em;font-weight:bold;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.btn-detect{background:#003060;color:#00d0ff;border:1px solid #005090}
+.btn-detect:hover:not(:disabled){background:#004590;box-shadow:0 0 8px #00a0ff55}
+.btn-detect.active{background:#0060c0;color:#fff;border-color:#00a0ff;box-shadow:0 0 10px #00a0ff66}
+.btn-prevent{background:#003020;color:#00ff80;border:1px solid #005030}
+.btn-prevent:hover:not(:disabled){background:#004530;box-shadow:0 0 8px #00d06055}
+.btn-prevent.active{background:#006030;color:#fff;border-color:#00d060;box-shadow:0 0 10px #00d06066}
+.btn-stop{background:#2a0a0a;color:#ff6060;border:1px solid #500}
+.btn-stop:hover:not(:disabled){background:#400;box-shadow:0 0 8px #f0000044}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+/* 전환 카운트다운 */
+.trans-bar{background:#1a1400;border:1px solid #ffaa00;border-radius:8px;padding:8px;text-align:center;margin:6px 0;font-size:.85em;color:#ffdd00}
+.trans-bar .trans-sec{font-size:1.4em;font-weight:bold}
+/* 포텐셔미터 슬라이더 */
+.slider-wrap{margin:8px 0}
+.slider-wrap label{display:flex;justify-content:space-between;font-size:.8em;color:#888;margin-bottom:4px}
+.slider-wrap label span{color:#0ff;font-weight:bold}
+input[type=range]{width:100%;accent-color:#0af;height:4px;cursor:pointer}
+.vpp-display{display:flex;justify-content:space-between;font-size:.78em;margin:4px 0}
+.vpp-key{color:#888}
+.vpp-val{color:#0f0;font-weight:bold}
+.btn-apply{background:#0a3040;color:#0af;border:1px solid #0af;border-radius:6px;padding:6px 16px;font-size:.8em;cursor:pointer;width:100%;margin-top:4px}
+.btn-apply:hover{background:#0af;color:#000}
+/* 타이머 설정 */
+.timer-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0}
+.timer-form input[type=number]{background:#0d1b2a;color:#eee;border:1px solid #1e3a5f;border-radius:6px;padding:5px 8px;font-size:.82em;width:100%}
+.btn-set{background:#0a2030;color:#0af;border:1px solid #0af;border-radius:6px;padding:5px;font-size:.78em;cursor:pointer;grid-column:1/-1}
+.btn-set:hover{background:#0af;color:#000}
+/* 진행바 */
+.progress-wrap{margin:6px 0}
+.progress-label{display:flex;justify-content:space-between;font-size:.75em;color:#666;margin-bottom:3px}
+.progress-bar{height:5px;background:#1e3a5f;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+.fill-detect{background:linear-gradient(90deg,#005090,#00a0ff)}
+.fill-prevent{background:linear-gradient(90deg,#005030,#00d060)}
+/* 접속 설정 */
+.conn-section{background:#0a0a18;border:1px solid #1e3a5f;border-radius:10px;padding:14px;margin-bottom:16px}
+.conn-section h3{color:#0af;font-size:.9em;margin-bottom:10px}
+.conn-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.conn-row input{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:6px;padding:6px 10px;font-size:.82em;width:100%}
+.conn-row label{font-size:.75em;color:#666}
+.btn-conn{background:#0af;color:#000;border:none;border-radius:6px;padding:7px 16px;font-size:.82em;cursor:pointer;font-weight:bold;white-space:nowrap}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot-on{background:#0f0;box-shadow:0 0 6px #0f0}
+.dot-off{background:#f00;box-shadow:0 0 6px #f00}
+.dot-connecting{background:#ff0;animation:pulse .6s infinite alternate}
+.no-device{text-align:center;color:#444;padding:40px;font-size:.9em}
+.ts{font-size:.7em;color:#444;margin-top:8px;text-align:right}
+/* 반응형 */
+@media(max-width:480px){.conn-row{grid-template-columns:1fr;} .conn-row .btn-conn{width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ PROXI Dashboard <span style="font-size:.7em;color:#666">v2</span></h1>
+  <div class="hstat">
+    <span id="mqttDot" class="status-dot dot-off"></span>
+    <span id="mqttStatus">연결 안됨</span>
+    &nbsp;|&nbsp; 기기 <span id="devCount">0</span>대
+  </div>
+</header>
+<main>
+  <!-- 브로커 연결 설정 -->
+  <div class="conn-section">
+    <h3>🔌 MQTT 브로커 연결</h3>
+    <div class="conn-row">
+      <div>
+        <label>브로커 (WebSocket URL)</label>
+        <input id="brokerUrl" type="text" value="wss://0787e7c51f3849acbc9b6fb026816a97.s1.eu.hivemq.cloud:8884/mqtt"/>
+      </div>
+      <div>
+        <label>ID / 비밀번호</label>
+        <div style="display:flex;gap:4px">
+          <input id="brokerUser" type="text" value="PROXIHEALTH" style="flex:1"/>
+          <input id="brokerPass" type="password" value="!Jack0190" style="flex:1"/>
+        </div>
+      </div>
+      <button class="btn-conn" onclick="connectMQTT()">연결</button>
+    </div>
+  </div>
+  <!-- 기기 카드 -->
+  <div class="grid" id="deviceGrid">
+    <div class="no-device" id="noDevice">MQTT에 연결하면 기기가 표시됩니다</div>
+  </div>
+</main>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+// ── 상태 관리 ───────────────────────────────────────────────
+const devices = {};
+let mqttClient = null;
+
+// ── MQTT 연결 ───────────────────────────────────────────────
+function connectMQTT() {
+  const url  = document.getElementById('brokerUrl').value.trim();
+  const user = document.getElementById('brokerUser').value.trim();
+  const pass = document.getElementById('brokerPass').value.trim();
+
+  if (mqttClient) { mqttClient.end(true); mqttClient = null; }
+
+  setMqttStatus('connecting');
+  mqttClient = mqtt.connect(url, {
+    username: user,
+    password: pass,
+    clientId: 'proxi-dash-v2-' + Math.random().toString(16).slice(2, 8),
+    reconnectPeriod: 5000,
+    connectTimeout: 10000
+  });
+
+  mqttClient.on('connect', () => {
+    setMqttStatus('on');
+    mqttClient.subscribe('proxi/+/data', { qos: 0 });
+  });
+  mqttClient.on('reconnect', () => setMqttStatus('connecting'));
+  mqttClient.on('offline',   () => setMqttStatus('off'));
+  mqttClient.on('error',     () => setMqttStatus('off'));
+
+  mqttClient.on('message', (topic, payload) => {
+    try {
+      const d = JSON.parse(payload.toString());
+      if (d.id) updateDevice(d);
+    } catch(e) {}
+  });
+}
+
+function setMqttStatus(state) {
+  const dot = document.getElementById('mqttDot');
+  const txt = document.getElementById('mqttStatus');
+  dot.className = 'status-dot ' + (state==='on' ? 'dot-on' : state==='connecting' ? 'dot-connecting' : 'dot-off');
+  txt.textContent = state==='on' ? '연결됨' : state==='connecting' ? '연결 중...' : '연결 안됨';
+}
+
+function sendCmd(id, cmd) {
+  if (!mqttClient || !mqttClient.connected) { alert('MQTT 연결 필요'); return; }
+  mqttClient.publish(`proxi/${id}/cmd`, cmd);
+}
+
+// ── 기기 데이터 업데이트 ────────────────────────────────────
+function updateDevice(d) {
+  const isNew = !devices[d.id];
+  devices[d.id] = d;
+  document.getElementById('devCount').textContent = Object.keys(devices).length;
+  const noEl = document.getElementById('noDevice');
+  if (noEl) noEl.remove();
+
+  if (isNew) {
+    const card = document.createElement('div');
+    card.id = 'card-' + d.id;
+    card.className = 'card';
+    card.innerHTML = buildCard(d);
+    document.getElementById('deviceGrid').appendChild(card);
+    // 슬라이더 이벤트
+    const sl = card.querySelector('.vdc-slider');
+    if (sl) sl.addEventListener('input', () => updateSliderDisplay(d.id));
+  } else {
+    refreshCard(d.id, d);
+  }
+}
+
+// ── 카드 HTML 생성 ──────────────────────────────────────────
+function buildCard(d) {
+  return `
+  <div class="card-head">
+    <div>
+      <div class="card-title">${esc(d.name || d.id)}</div>
+      <div class="card-id">${esc(d.id)} &nbsp;·&nbsp; FW: ${esc(d.fw||'?')} &nbsp;·&nbsp; ${esc(d.ssid||'')}</div>
+    </div>
+    <span class="badge ${badgeClass(d)}" id="badge-${d.id}">${modeLabel(d)}</span>
+  </div>
+
+  <!-- 전환 카운트다운 -->
+  <div class="trans-bar" id="transBar-${d.id}" style="${d.mode==='TRANSITION'?'':'display:none'}">
+    ⏳ 출력 전환 중... <span class="trans-sec" id="transSec-${d.id}">${(d.trans_rem/1000).toFixed(1)}s</span>
+    <div style="font-size:.75em;color:#aaa80;margin-top:2px">→ ${d.mode==='TRANSITION'?(d.detect?'PREVENT':'DETECT'):'?'}</div>
+  </div>
+
+  <!-- IP -->
+  <div class="row"><span class="lbl">IP</span><span class="val">${esc(d.ip||'—')}</span></div>
+
+  <!-- 측정값 (DETECT 중일 때) -->
+  <div id="measRow-${d.id}">
+    ${buildMeasRow(d)}
+  </div>
+
+  <!-- 모드 제어 버튼 -->
+  <div class="section-title">출력 제어 (단일 출력)</div>
+  <div class="mode-btns">
+    <button class="btn btn-detect ${d.mode==='DETECT'?'active':''}" id="btnDet-${d.id}"
+      onclick="sendCmd('${d.id}','DETECT_START')"
+      ${d.mode==='TRANSITION'?'disabled':''}>
+      ▶ DETECT
+    </button>
+    <button class="btn btn-prevent ${d.mode==='PREVENT'?'active':''}" id="btnPrv-${d.id}"
+      onclick="sendCmd('${d.id}','PREVENT_START')"
+      ${d.mode==='TRANSITION'?'disabled':''}>
+      ▶ PREVENT
+    </button>
+    <button class="btn btn-stop" style="grid-column:1/-1"
+      onclick="stopCurrent('${d.id}')"
+      ${d.mode==='IDLE'?'disabled':''}>
+      ■ 정지
+    </button>
+  </div>
+
+  <!-- DETECT 타이머 진행바 -->
+  <div class="progress-wrap" id="dProg-${d.id}" style="${d.mode==='DETECT'?'':'display:none'}">
+    <div class="progress-label"><span>DETECT 남은시간</span><span id="dRemTxt-${d.id}">${fmtMs(d.d_rem)}</span></div>
+    <div class="progress-bar"><div class="progress-fill fill-detect" id="dFill-${d.id}" style="width:${calcPct(d.d_rem,d.d_dur)}%"></div></div>
+  </div>
+
+  <!-- PREVENT 타이머 진행바 -->
+  <div class="progress-wrap" id="pProg-${d.id}" style="${d.mode==='PREVENT'?'':'display:none'}">
+    <div class="progress-label"><span>PREVENT 남은시간</span><span id="pRemTxt-${d.id}">${fmtMs(d.p_rem)}</span></div>
+    <div class="progress-bar"><div class="progress-fill fill-prevent" id="pFill-${d.id}" style="width:${calcPct(d.p_rem,d.p_dur)}%"></div></div>
+  </div>
+
+  <!-- PREVENT 출력 레벨 (MCP4651) -->
+  <div class="section-title">PREVENT 출력 레벨</div>
+  <div class="slider-wrap">
+    <label>VDC <span id="vdcVal-${d.id}">${(d.vdc||0.7).toFixed(2)}V</span></label>
+    <input type="range" class="vdc-slider" id="vdcSlider-${d.id}"
+      min="0.1" max="2.5" step="0.1" value="${(d.vdc||0.7).toFixed(1)}"/>
+  </div>
+  <div class="vpp-display">
+    <span class="vpp-key">Vpp (= VDC × 2)</span>
+    <span class="vpp-val" id="vppDisp-${d.id}">${((d.vdc||0.7)*2).toFixed(2)}V</span>
+  </div>
+  <button class="btn-apply" onclick="applyVpset('${d.id}')">✓ 적용</button>
+
+  <!-- 타이머 설정 -->
+  <div class="section-title">타이머 설정</div>
+  <div style="font-size:.78em;color:#888;margin-bottom:4px">DETECT: 주기 ${d.d_intv}h / 동작 ${d.d_dur}min &nbsp;|&nbsp; PREVENT: 주기 ${d.p_intv}h / 동작 ${d.p_dur}min</div>
+  <div class="timer-form">
+    <input type="number" id="di_intv-${d.id}" placeholder="D주기(h)" min="1" max="24" value="${d.d_intv||1}"/>
+    <input type="number" id="di_dur-${d.id}"  placeholder="D동작(분)" min="1" max="60" value="${d.d_dur||1}"/>
+    <button class="btn-set" onclick="sendDset('${d.id}')">DETECT 타이머 설정</button>
+    <input type="number" id="pi_intv-${d.id}" placeholder="P주기(h)" min="1" max="24" value="${d.p_intv||1}"/>
+    <input type="number" id="pi_dur-${d.id}"  placeholder="P동작(분)" min="1" max="60" value="${d.p_dur||10}"/>
+    <button class="btn-set" onclick="sendPset('${d.id}')">PREVENT 타이머 설정</button>
+  </div>
+
+  <!-- 기타 -->
+  <div class="section-title">기타</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn-set" style="flex:1;min-width:100px" onclick="changeName('${d.id}')">기기명 변경</button>
+    <button class="btn-set" style="flex:1;min-width:100px;color:#f90;border-color:#f90" onclick="sendCmd('${d.id}','UPLOAD_ALL')">CSV 전송</button>
+  </div>
+
+  <div class="ts" id="ts-${d.id}">업데이트: ${new Date().toLocaleTimeString()}</div>`;
+}
+
+function buildMeasRow(d) {
+  if (d.mode !== 'DETECT') return '';
+  return `
+    <div class="section-title">측정값</div>
+    <div class="row"><span class="lbl">Vt</span><span class="val val-hi">${n(d.vt,3)} V</span></div>
+    <div class="row"><span class="lbl">It</span><span class="val val-green">${n(d.it,6)} A</span></div>`;
+}
+
+// ── 카드 갱신 ───────────────────────────────────────────────
+function refreshCard(id, d) {
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+
+  // 카드 테두리 색
+  card.className = 'card' +
+    (d.mode==='DETECT' ? ' detect-active' :
+     d.mode==='PREVENT' ? ' prevent-active' :
+     d.mode==='TRANSITION' ? ' transition-active' : '');
+
+  // 배지
+  safeSet('badge-' + id, el => { el.className = 'badge ' + badgeClass(d); el.textContent = modeLabel(d); });
+
+  // 전환 카운트다운
+  const tb = document.getElementById('transBar-' + id);
+  if (tb) tb.style.display = d.mode === 'TRANSITION' ? '' : 'none';
+  safeSet('transSec-' + id, el => el.textContent = (d.trans_rem/1000).toFixed(1) + 's');
+
+  // 측정값
+  safeSet('measRow-' + id, el => el.innerHTML = buildMeasRow(d));
+
+  // 모드 버튼 상태
+  safeSet('btnDet-' + id, el => {
+    el.disabled = d.mode === 'TRANSITION';
+    el.className = 'btn btn-detect' + (d.mode==='DETECT' ? ' active' : '');
+  });
+  safeSet('btnPrv-' + id, el => {
+    el.disabled = d.mode === 'TRANSITION';
+    el.className = 'btn btn-prevent' + (d.mode==='PREVENT' ? ' active' : '');
+  });
+
+  // 진행바
+  const dProg = document.getElementById('dProg-' + id);
+  const pProg = document.getElementById('pProg-' + id);
+  if (dProg) dProg.style.display = d.mode==='DETECT' ? '' : 'none';
+  if (pProg) pProg.style.display = d.mode==='PREVENT' ? '' : 'none';
+
+  if (d.mode==='DETECT' && d.d_rem >= 0) {
+    safeSet('dRemTxt-' + id, el => el.textContent = fmtMs(d.d_rem));
+    safeSet('dFill-' + id, el => el.style.width = calcPct(d.d_rem, d.d_dur) + '%');
+  }
+  if (d.mode==='PREVENT' && d.p_rem >= 0) {
+    safeSet('pRemTxt-' + id, el => el.textContent = fmtMs(d.p_rem));
+    safeSet('pFill-' + id, el => el.style.width = calcPct(d.p_rem, d.p_dur) + '%');
+  }
+
+  // Vpp 현재값 반영 (슬라이더는 사용자가 조작 중일 수 있으므로 건드리지 않음)
+  safeSet('vdcVal-' + id, el => el.textContent = (d.vdc||0).toFixed(2) + 'V (현재)');
+  safeSet('vppDisp-' + id, el => el.textContent = (d.vpp||0).toFixed(2) + 'V');
+
+  // 타임스탬프
+  safeSet('ts-' + id, el => el.textContent = '업데이트: ' + new Date().toLocaleTimeString());
+}
+
+// ── 슬라이더 표시 갱신 ─────────────────────────────────────
+function updateSliderDisplay(id) {
+  const sl = document.getElementById('vdcSlider-' + id);
+  if (!sl) return;
+  const v = parseFloat(sl.value);
+  safeSet('vdcVal-' + id, el => el.textContent = v.toFixed(2) + 'V');
+  safeSet('vppDisp-' + id, el => el.textContent = (v*2).toFixed(2) + 'V');
+}
+
+// ── 명령 함수 ───────────────────────────────────────────────
+function stopCurrent(id) {
+  const d = devices[id];
+  if (!d) return;
+  if (d.mode === 'DETECT')  sendCmd(id, 'DETECT_STOP');
+  else if (d.mode === 'PREVENT') sendCmd(id, 'PREVENT_STOP');
+  else if (d.mode === 'TRANSITION') { sendCmd(id, 'DETECT_STOP'); sendCmd(id, 'PREVENT_STOP'); }
+}
+
+function applyVpset(id) {
+  const sl = document.getElementById('vdcSlider-' + id);
+  if (!sl) return;
+  const v = parseFloat(sl.value);
+  if (v < 0.1 || v > 2.5) { alert('VDC 범위: 0.1V ~ 2.5V'); return; }
+  sendCmd(id, `VPSET:${v.toFixed(2)}`);
+  alert(`VDC=${v.toFixed(2)}V, Vpp=${(v*2).toFixed(2)}V 설정 요청 완료`);
+}
+
+function sendDset(id) {
+  const intv = parseInt(document.getElementById('di_intv-' + id).value)||1;
+  const dur  = parseInt(document.getElementById('di_dur-'  + id).value)||1;
+  sendCmd(id, `DSET:${intv},${dur}`);
+}
+
+function sendPset(id) {
+  const intv = parseInt(document.getElementById('pi_intv-' + id).value)||1;
+  const dur  = parseInt(document.getElementById('pi_dur-'  + id).value)||10;
+  sendCmd(id, `PSET:${intv},${dur}`);
+}
+
+function changeName(id) {
+  const name = prompt('새 기기명 입력:');
+  if (name && name.trim()) sendCmd(id, `NAME:${name.trim()}`);
+}
+
+// ── 유틸 ────────────────────────────────────────────────────
+function badgeClass(d) {
+  if (d.mode === 'DETECT')     return 'badge-detect';
+  if (d.mode === 'PREVENT')    return 'badge-prevent';
+  if (d.mode === 'TRANSITION') return 'badge-transition';
+  return 'badge-idle';
+}
+function modeLabel(d) {
+  if (d.mode === 'DETECT')     return 'DETECT';
+  if (d.mode === 'PREVENT')    return 'PREVENT';
+  if (d.mode === 'TRANSITION') return '전환 중...';
+  return 'IDLE';
+}
+function fmtMs(ms) {
+  if (ms == null || ms < 0) return '—';
+  const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function calcPct(rem, durMin) {
+  if (rem == null || rem < 0 || !durMin) return 0;
+  return Math.min(100, Math.round(rem / (durMin * 60000) * 100));
+}
+function n(v, d) { return (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function safeSet(id, fn) { const el = document.getElementById(id); if (el) fn(el); }
+
+// 자동 연결
+connectMQTT();
+</script>
+</body>
+</html>
