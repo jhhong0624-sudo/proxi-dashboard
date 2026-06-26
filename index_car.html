@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROXI Dashboard — CAR</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#0d0d1a;color:#ddd;min-height:100vh}
+header{background:#0a0a18;border-bottom:2px solid #0af;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+header h1{color:#0af;font-size:1.2em;letter-spacing:2px}
+.hstat{font-size:.75em;color:#666;display:flex;align-items:center;gap:8px}
+main{padding:16px;max-width:1400px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px}
+
+/* ── 브로커 설정 ─────────────────────────── */
+.conn-section{background:#0a0a18;border:1px solid #1e3a5f;border-radius:10px;padding:14px;margin-bottom:16px}
+.conn-section h3{color:#0af;font-size:.9em;margin-bottom:10px}
+.conn-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.conn-row input{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:6px;padding:6px 10px;font-size:.82em;width:100%}
+.conn-row label{font-size:.75em;color:#666;display:block;margin-bottom:3px}
+.btn-conn{background:#0af;color:#000;border:none;border-radius:6px;padding:7px 16px;font-size:.82em;cursor:pointer;font-weight:bold;white-space:nowrap}
+@media(max-width:600px){.conn-row{grid-template-columns:1fr}.btn-conn{width:100%}}
+
+/* ── 카드 ────────────────────────────────── */
+.card{background:#111827;border:2px solid #1e3a5f;border-radius:14px;padding:16px;transition:border-color .3s,box-shadow .3s}
+.card.s-detect  {border-color:#00a0ff;box-shadow:0 0 16px #00a0ff44}
+.card.s-prevent {border-color:#00e070;box-shadow:0 0 16px #00e07044}
+.card.s-trans   {border-color:#ffdd00;box-shadow:0 0 16px #ffdd0044}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.card-title{font-size:1em;color:#0af;font-weight:bold}
+.card-meta{font-size:.72em;color:#555;margin-top:2px}
+
+/* ── 상태 표시판 (핵심) ──────────────────── */
+.state-panel{border-radius:10px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;transition:all .4s}
+.state-panel.sp-idle    {background:#141414;border:1px solid #333}
+.state-panel.sp-detect  {background:#001830;border:1px solid #0080cc;animation:glow-b 1.5s infinite alternate}
+.state-panel.sp-prevent {background:#001a0e;border:1px solid #00a050;animation:glow-g 1.5s infinite alternate}
+.state-panel.sp-trans   {background:#1a1200;border:1px solid #cc8800;animation:glow-y .7s infinite alternate}
+@keyframes glow-b{from{box-shadow:0 0 4px #0080cc33}to{box-shadow:0 0 12px #00a0ff88}}
+@keyframes glow-g{from{box-shadow:0 0 4px #00a05033}to{box-shadow:0 0 12px #00e07088}}
+@keyframes glow-y{from{box-shadow:0 0 4px #cc880033}to{box-shadow:0 0 12px #ffdd0088}}
+.state-icon{font-size:2em;line-height:1}
+.state-info{flex:1;padding:0 12px}
+.state-name{font-size:1.1em;font-weight:bold;letter-spacing:1px}
+.sp-idle    .state-name{color:#555}
+.sp-detect  .state-name{color:#00d0ff}
+.sp-prevent .state-name{color:#00ff80}
+.sp-trans   .state-name{color:#ffdd00}
+.state-sub{font-size:.75em;color:#666;margin-top:2px}
+.state-time{text-align:right}
+.state-rem{font-size:1.3em;font-weight:bold;color:#fff;font-variant-numeric:tabular-nums}
+.sp-idle   .state-rem{color:#333}
+.sp-detect .state-rem{color:#00d0ff}
+.sp-prevent .state-rem{color:#00ff80}
+.sp-trans  .state-rem{color:#ffdd00}
+.state-pct{font-size:.72em;color:#666;margin-top:2px}
+
+/* 진행바 */
+.prog-bar{height:4px;border-radius:2px;background:#1e3a5f;overflow:hidden;margin-top:8px}
+.prog-fill{height:100%;border-radius:2px;transition:width .8s}
+.pf-detect {background:linear-gradient(90deg,#005090,#00d0ff)}
+.pf-prevent{background:linear-gradient(90deg,#005030,#00ff80)}
+.pf-trans  {background:linear-gradient(90deg,#604000,#ffdd00)}
+
+/* ── 제어 버튼 ───────────────────────────── */
+.ctrl-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:8px 0}
+.btn{border:none;border-radius:8px;padding:9px 6px;font-size:.82em;font-weight:bold;cursor:pointer;transition:all .2s;letter-spacing:.5px;width:100%}
+.btn-detect{background:#001830;color:#00c0ee;border:1px solid #004070}
+.btn-detect:hover:not(:disabled){background:#003060;box-shadow:0 0 8px #00a0ff55}
+.btn-detect.active{background:#0060b0;color:#fff;border-color:#00a0ff;box-shadow:0 0 10px #00a0ff88}
+.btn-prevent{background:#001808;color:#00dd60;border:1px solid #004020}
+.btn-prevent:hover:not(:disabled){background:#003020;box-shadow:0 0 8px #00d06055}
+.btn-prevent.active{background:#005030;color:#fff;border-color:#00d060;box-shadow:0 0 10px #00d06088}
+.btn-stop{background:#1a0505;color:#ff7070;border:1px solid #400}
+.btn-stop:hover:not(:disabled){background:#330;box-shadow:0 0 8px #ff000044}
+.btn-stop.active{background:#400;color:#fff;border-color:#f00}
+.btn:disabled{opacity:.25;cursor:not-allowed}
+
+/* ── 섹션 ────────────────────────────────── */
+.sec{color:#0af;font-size:.72em;letter-spacing:1px;margin:12px 0 6px;border-bottom:1px solid #1a2f48;padding-bottom:3px;text-transform:uppercase}
+.row{display:flex;justify-content:space-between;align-items:center;margin:4px 0;font-size:.82em}
+.lbl{color:#555}
+.val{color:#eee;font-weight:bold}
+.val-b{color:#0ff}
+.val-g{color:#0f0}
+.val-y{color:#ff0}
+
+/* ── 측정값 ──────────────────────────────── */
+.meas-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0}
+.meas-box{background:#0d1520;border:1px solid #1e3a5f;border-radius:8px;padding:8px;text-align:center}
+.meas-lbl{font-size:.7em;color:#555;margin-bottom:3px}
+.meas-val{font-size:1.1em;font-weight:bold}
+
+/* ── VDC 슬라이더 ────────────────────────── */
+.slider-row{display:flex;align-items:center;gap:8px;margin:6px 0}
+.slider-row input[type=range]{flex:1;accent-color:#0af;cursor:pointer}
+.slider-val{font-size:.85em;font-weight:bold;color:#0ff;min-width:40px;text-align:right}
+.vpp-row{display:flex;justify-content:space-between;font-size:.78em;margin:3px 0 6px}
+.vpp-row span:first-child{color:#555}
+.vpp-row span:last-child{color:#0f0;font-weight:bold}
+.btn-apply{background:#0a2030;color:#0af;border:1px solid #0af;border-radius:6px;padding:6px;font-size:.8em;cursor:pointer;width:100%}
+.btn-apply:hover{background:#0af;color:#000}
+
+/* ── 타이머 설정 ─────────────────────────── */
+.timer-block{background:#0a0f1a;border:1px solid #1e3a5f;border-radius:8px;padding:10px;margin:6px 0}
+.timer-block-title{font-size:.75em;font-weight:bold;margin-bottom:6px}
+.tb-detect .timer-block-title{color:#00c0ee}
+.tb-prevent .timer-block-title{color:#00dd60}
+.timer-inputs{display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center}
+.timer-inputs input{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 6px;font-size:.8em;width:100%}
+.timer-inputs label{font-size:.7em;color:#555;text-align:center}
+.btn-tset{background:#0a2030;color:#0af;border:1px solid #0af;border-radius:5px;padding:5px 10px;font-size:.78em;cursor:pointer;white-space:nowrap}
+.btn-tset:hover{background:#0af;color:#000}
+.timer-mutual-note{font-size:.7em;color:#664400;background:#1a1200;border:1px solid #443300;border-radius:5px;padding:5px 8px;margin:4px 0;text-align:center}
+/* ── 동작 시간표 편집기 ── */
+.sched-note{font-size:.72em;color:#567;margin:4px 0}
+.sched-list{display:flex;flex-direction:column;gap:5px;margin:4px 0}
+.sched-row{display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center}
+.sched-row .sched-t{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 6px;font-size:.8em;width:100%}
+.sched-row .sched-a{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 6px;font-size:.8em;width:100%}
+.sched-del{background:#1a0d0d;color:#f55;border:1px solid #5a1e1e;border-radius:5px;padding:5px 9px;font-size:.78em;cursor:pointer}
+.sched-del:hover{background:#f55;color:#fff}
+.sched-btns{display:flex;gap:5px;margin-top:4px}
+.btn-sched-add{flex:1;background:#0a1520;color:#888;border:1px solid #1e3a5f;border-radius:5px;padding:6px;font-size:.78em;cursor:pointer}
+.btn-sched-add:hover{color:#0af;border-color:#0af}
+.btn-sched-save{flex:1;background:#0a2030;color:#0af;border:1px solid #0af;border-radius:5px;padding:6px;font-size:.78em;cursor:pointer}
+.btn-sched-save:hover{background:#0af;color:#000}
+/* ── A/C 연동 설정 (차량용) ── */
+.ac-form{display:flex;flex-direction:column;gap:6px;margin:4px 0}
+.ac-up-tog{display:flex;align-items:center;gap:6px;font-size:.78em;color:#cde;cursor:pointer}
+.ac-up-tog input{width:15px;height:15px;accent-color:#0af;cursor:pointer}
+.ac-note{font-size:.72em;color:#567;margin:2px 0}
+.ac-row{display:flex;align-items:center;gap:6px}
+.ac-row label{width:72px;flex:none;font-size:.8em;color:#aab}
+.ac-sel{flex:none;width:118px;box-sizing:border-box;background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 6px;font-size:.8em}
+.ac-min{flex:none;width:46px;box-sizing:border-box;background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 4px;font-size:.8em;text-align:center}
+.ac-unit{flex:1;min-width:0;font-size:.74em;color:#778}
+.stat-detail{display:flex;flex-direction:column;gap:5px;margin:8px 0 2px;padding:8px 10px;background:#0d1322;border:1px solid #1a2f48;border-radius:8px}
+.sd-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.76em}
+.sd-l{color:#8aa;white-space:nowrap}
+.sd-v{color:#9fd6ff;text-align:right;font-weight:bold}
+.btn-ac-save{background:#0a2030;color:#0af;border:1px solid #0af;border-radius:5px;padding:6px;font-size:.78em;cursor:pointer;margin-top:2px}
+.btn-ac-save:hover{background:#0af;color:#000}
+
+/* ── Wi-Fi 설정 ──────────────────────────── */
+.wifi-form{display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center;margin:6px 0}
+.wifi-form input{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 8px;font-size:.8em;width:100%}
+.btn-wifi{background:#0a2030;color:#f90;border:1px solid #f90;border-radius:5px;padding:5px 10px;font-size:.78em;cursor:pointer;white-space:nowrap}
+.btn-wifi:hover{background:#f90;color:#000}
+.nas-form{display:flex;flex-direction:column;gap:5px;margin:6px 0}
+.nas-form input{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:5px 8px;font-size:.8em;width:100%;box-sizing:border-box}
+.nas-row2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.nas-btns{display:flex;gap:5px;margin-top:2px}
+.btn-nas-save,.btn-nas-up{flex:1;border-radius:5px;padding:6px;font-size:.78em;cursor:pointer}
+.btn-nas-save{background:#0a2030;color:#0af;border:1px solid #0af}
+.btn-nas-save:hover{background:#0af;color:#000}
+.btn-nas-up{background:#0a2030;color:#f90;border:1px solid #f90}
+.btn-nas-up:hover{background:#f90;color:#000}
+.nas-note{font-size:.72em;color:#567;margin-top:2px}
+.nas-auto{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.nas-auto-tog{display:flex;align-items:center;gap:5px;font-size:.78em;color:#cde;cursor:pointer}
+.nas-auto-tog input{width:15px;height:15px;accent-color:#0af;cursor:pointer}
+.nas-auto-hr{background:#111827;color:#eee;border:1px solid #1e3a5f;border-radius:5px;padding:4px 6px;font-size:.78em}
+.btn-nas-auto{background:#0a2030;color:#0af;border:1px solid #0af;border-radius:5px;padding:5px 12px;font-size:.78em;cursor:pointer}
+.btn-nas-auto:hover{background:#0af;color:#000}
+
+/* ── 파일 브라우저 ───────────────────────── */
+.file-panel{background:#080e16;border:1px solid #1e3a5f;border-radius:8px;overflow:hidden;margin:6px 0}
+.file-panel-head{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#0d1520;cursor:pointer}
+.file-panel-head span{font-size:.8em;color:#0af}
+.file-panel-head .fp-toggle{font-size:.75em;color:#444}
+.file-list{max-height:180px;overflow-y:auto}
+.file-list::-webkit-scrollbar{width:4px}
+.file-list::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}
+.file-item{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-bottom:1px solid #0d1520;font-size:.75em}
+.file-item:last-child{border-bottom:none}
+.file-item:hover{background:#0d1a2a}
+.file-name{color:#aad4ff;cursor:pointer;text-decoration:none}
+.file-name:hover{color:#fff;text-decoration:underline}
+.file-size{color:#445;font-size:.9em}
+.file-empty{padding:12px;text-align:center;color:#333;font-size:.8em}
+.btn-frefresh{background:none;border:1px solid #1e3a5f;border-radius:4px;color:#555;padding:2px 7px;font-size:.72em;cursor:pointer}
+.btn-frefresh:hover{color:#0af;border-color:#0af}
+.file-err{padding:8px 10px;font-size:.75em;color:#664}
+
+/* ── 기기 시간 ───────────────────────────── */
+.dev-time-row{display:flex;justify-content:space-between;align-items:center;background:#0a0f1a;border-radius:6px;padding:6px 10px;margin:4px 0}
+.dev-time-lbl{font-size:.72em;color:#445}
+.dev-time-right{display:flex;align-items:center;gap:8px}
+.dev-time-val{font-size:.82em;color:#aaa;font-variant-numeric:tabular-nums}
+.btn-timesync{background:#0a2030;color:#0af;border:1px solid #0af;border-radius:5px;padding:3px 8px;font-size:.7em;cursor:pointer;white-space:nowrap}
+.btn-timesync:hover{background:#0af;color:#000}
+
+/* ── 기타 버튼 ───────────────────────────── */
+.misc-btns{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}
+.btn-misc{flex:1;min-width:90px;background:#0a1520;color:#888;border:1px solid #1e3a5f;border-radius:6px;padding:6px;font-size:.76em;cursor:pointer}
+.btn-misc:hover{color:#0af;border-color:#0af}
+.btn-misc.warn{color:#f90;border-color:#f90}
+.btn-misc.warn:hover{background:#f90;color:#000}
+
+/* ── 기타 ────────────────────────────────── */
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dot-on{background:#0f0;box-shadow:0 0 6px #0f0}
+.dot-off{background:#f00;box-shadow:0 0 6px #f00}
+.dot-conn{background:#ff0;animation:blink .6s infinite alternate}
+@keyframes blink{from{opacity:.4}to{opacity:1}}
+.no-device{text-align:center;color:#333;padding:50px;font-size:.9em;grid-column:1/-1}
+.ts{font-size:.68em;color:#333;margin-top:10px;text-align:right}
+</style>
+</head>
+<body>
+<header>
+  <h1>🚗 PROXI <span style="color:#0af">CAR</span></h1>
+  <div class="hstat">
+    <span id="mqttDot" class="status-dot dot-off"></span>
+    <span id="mqttStatus" style="color:#666">연결 안됨</span>
+    <span style="color:#333">|</span>
+    기기 <span id="devCount" style="color:#0af">0</span>대
+  </div>
+</header>
+
+<main>
+  <!-- MQTT 연결 설정 -->
+  <div class="conn-section">
+    <h3>🔌 MQTT 브로커 연결</h3>
+    <div class="conn-row">
+      <div>
+        <label>브로커 URL (WebSocket)</label>
+        <input id="brokerUrl" type="text" value="wss://0787e7c51f3849acbc9b6fb026816a97.s1.eu.hivemq.cloud:8884/mqtt"/>
+      </div>
+      <div>
+        <label>ID &nbsp;/&nbsp; 비밀번호</label>
+        <div style="display:flex;gap:4px">
+          <input id="brokerUser" type="text" value="PROXIHEALTH" style="flex:1"/>
+          <input id="brokerPass" type="password" value="!Jack0190" style="flex:1"/>
+        </div>
+      </div>
+      <button class="btn-conn" onclick="connectMQTT()">연결</button>
+    </div>
+  </div>
+
+  <!-- 기기 카드 그리드 -->
+  <div class="grid" id="deviceGrid">
+    <div class="no-device" id="noDevice">차량용(car) 펌웨어 기기만 표시됩니다 · MQTT 연결 후 자동 표시</div>
+  </div>
+</main>
+
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+<script>
+'use strict';
+
+// ── 전역 상태 ─────────────────────────────────────────────────
+const devices  = {};          // id → 최신 데이터
+const fileOpen = {};          // id → bool (파일 패널 열림 여부)
+let mqttClient = null;
+
+// 차량용 기기 판별: 펌웨어 버전(fw)이 "car"로 시작 (예: car_v1, car_v2...)
+function isCarDevice(d) { return /^car/i.test(String(d.fw || '')); }
+
+// ── MQTT 연결 ─────────────────────────────────────────────────
+function connectMQTT() {
+  const url  = document.getElementById('brokerUrl').value.trim();
+  const user = document.getElementById('brokerUser').value.trim();
+  const pass = document.getElementById('brokerPass').value.trim();
+  if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
+  setMqttSt('conn');
+  mqttClient = mqtt.connect(url, {
+    username: user, password: pass,
+    clientId: 'pxd2-' + Math.random().toString(36).slice(2,8),
+    reconnectPeriod: 5000, connectTimeout: 10000
+  });
+  mqttClient.on('connect',   () => { setMqttSt('on'); mqttClient.subscribe('proxi/+/data', {qos:0}); });
+  mqttClient.on('reconnect', () => setMqttSt('conn'));
+  mqttClient.on('offline',   () => setMqttSt('off'));
+  mqttClient.on('error',     () => setMqttSt('off'));
+  mqttClient.on('message',   (topic, payload) => {
+    try {
+      // 펌웨어가 NaN/Inf를 그대로 출력하면 JSON.parse가 깨지므로 null로 치환(방어)
+      const txt = payload.toString().replace(/:\s*-?(nan|inf|infinity)\b/gi, ':null');
+      const d = JSON.parse(txt);
+      // ★ 차량용 전용: fw가 "car"로 시작하는 기기만 표시
+      if (d && d.id && isCarDevice(d)) updateDevice(d);
+    } catch(e){ console.warn('[MQTT] parse skip:', e.message); }
+  });
+}
+
+function setMqttSt(s) {
+  document.getElementById('mqttDot').className =
+    'status-dot ' + (s==='on' ? 'dot-on' : s==='conn' ? 'dot-conn' : 'dot-off');
+  document.getElementById('mqttStatus').textContent =
+    s==='on' ? '연결됨' : s==='conn' ? '연결 중...' : '연결 안됨';
+  document.getElementById('mqttStatus').style.color =
+    s==='on' ? '#0f0' : s==='conn' ? '#ff0' : '#666';
+}
+
+function sendCmd(id, cmd) {
+  if (!mqttClient || !mqttClient.connected) { alert('MQTT 연결이 필요합니다'); return; }
+  mqttClient.publish('proxi/' + id + '/cmd', cmd);
+}
+
+// ── 기기 데이터 업데이트 ──────────────────────────────────────
+function updateDevice(d) {
+  const isNew = !devices[d.id];
+  devices[d.id] = d;
+  document.getElementById('devCount').textContent = Object.keys(devices).length;
+  const noEl = document.getElementById('noDevice');
+  if (noEl) noEl.remove();
+
+  if (isNew) {
+    fileOpen[d.id] = false;
+    const card = document.createElement('div');
+    card.id    = 'card-' + d.id;
+    card.className = 'card';
+    card.innerHTML = buildCard(d);
+    document.getElementById('deviceGrid').appendChild(card);
+    bindSlider(d.id);
+  } else {
+    refreshCard(d.id, d);
+  }
+}
+
+// ── A/C 연동 설정 요약 문자열 ─────────────────────────────────
+function acSummary(d) {
+  const ko = a => a==='P'?'방지':a==='D'?'감지':a==='I'?'정지':'?';
+  const on  = ko(d.ac_on   || 'P');
+  const onm = (d.ac_onmin  ?? 10);
+  const nx  = ko(d.ac_onnext || 'D');
+  const off = ko(d.ac_off  || 'D');
+  const offm= (d.ac_offmin ?? d.ac_min ?? 20);   // car_v3 호환: ac_min 폴백
+  return `ON ${on} ${onm}분→${nx} · OFF ${off} ${offm}분→딥슬립`;
+}
+
+// ── 카드 전체 빌드 ────────────────────────────────────────────
+function buildCard(d) {
+  const sp = spClass(d), sl = (d.vdc||0.7);
+  const nc = nasCfg(d.id);
+  return `
+  <!-- 헤더 -->
+  <div class="card-head">
+    <div>
+      <div class="card-title" id="ctitle-${d.id}">${esc(d.name||d.id)}</div>
+      <div class="card-meta" id="cmeta-${d.id}">${esc(d.id)} · FW:${esc(d.fw||'?')} · ${esc(d.ssid||'')}</div>
+    </div>
+  </div>
+
+  <!-- 기기 시간 -->
+  <div class="dev-time-row">
+    <span class="dev-time-lbl">🕐 기기 시간</span>
+    <span class="dev-time-right">
+      <span class="dev-time-val" id="devtime-${d.id}">${esc(d.time||'—')}</span>
+      <button class="btn-timesync" onclick="timeSync('${d.id}')" title="시간 동기화 (NTP)">🔄 동기화</button>
+    </span>
+  </div>
+
+  <!-- ★ 상태 표시판 -->
+  <div class="state-panel ${sp}" id="spanel-${d.id}">
+    <div class="state-icon" id="sicon-${d.id}">${stateIcon(d)}</div>
+    <div class="state-info">
+      <div class="state-name" id="sname-${d.id}">${stateKo(d)}</div>
+      <div class="state-sub"  id="ssub-${d.id}">${stateSub(d)}</div>
+    </div>
+    <div class="state-time">
+      <div class="state-rem" id="srem-${d.id}">${stateRem(d)}</div>
+      <div class="state-pct" id="spct-${d.id}">${statePct(d)}</div>
+    </div>
+  </div>
+  <!-- 진행바 -->
+  <div class="prog-bar" id="progbar-${d.id}">
+    <div class="prog-fill ${pfClass(d)}" id="progfill-${d.id}" style="width:${progW(d)}%"></div>
+  </div>
+
+  <!-- 현재 설정 요약 (방지 출력 레벨 + A/C 연동) -->
+  <div class="stat-detail">
+    <div class="sd-row"><span class="sd-l">⚡ 방지 출력 레벨</span><span class="sd-v" id="sdvpp-${d.id}">VDC ${sl.toFixed(2)}V · Vpp ${(sl*2).toFixed(2)}V</span></div>
+    <div class="sd-row"><span class="sd-l">🚗 A/C 연동 설정</span><span class="sd-v" id="sdac-${d.id}">${acSummary(d)}</span></div>
+  </div>
+
+  <!-- 임시 수동 제어 (A/C 신호 무관) -->
+  <div class="sec">수동 제어 (임시 · A/C 신호 무관)</div>
+  <div class="ac-note">🛠 A/C 신호 로직 확정 전까지 사용하는 임시 수동 제어. 감지/방지/정지를 직접 조작</div>
+  <div class="ctrl-btns" id="ctrlbtns-${d.id}">
+    ${buildCtrlBtns(d)}
+  </div>
+
+  <!-- 측정값 (감지 중일 때만) -->
+  <div id="measwrap-${d.id}">${buildMeas(d)}</div>
+
+  <!-- 방지 출력 레벨 -->
+  <div class="sec">방지 출력 레벨 (MCP4651)</div>
+  <div class="slider-row">
+    <span style="font-size:.75em;color:#555">VDC</span>
+    <input type="range" class="vdc-sl" id="vsl-${d.id}" min="0.05" max="1.50" step="0.05" value="${sl.toFixed(2)}"/>
+    <span class="slider-val" id="svdc-${d.id}">${sl.toFixed(2)}V</span>
+  </div>
+  <div class="vpp-row">
+    <span>Vpp = VDC × 2 &nbsp;<span style="color:#445;font-size:.8em">(0.05~1.50V)</span></span>
+    <span id="svpp-${d.id}">${(sl*2).toFixed(2)} V</span>
+  </div>
+  <button class="btn-apply" onclick="applyVpset('${d.id}')">✓ 출력 레벨 적용</button>
+
+  <!-- A/C 연동 동작 설정 (차량용) -->
+  <div class="sec">A/C 연동 동작 설정</div>
+  <div class="ac-note">🚗 자동차 A/C 신호로 동작 제어 · 전원 인가 시 정지(IDLE)로 시작 후 신호에 따라 동작</div>
+  <div class="ac-form">
+    <div class="ac-row">
+      <label>A/C <b style="color:#0af">ON</b> 시</label>
+      <select id="acon-${d.id}" class="ac-sel">
+        <option value="P"${(d.ac_on||'P')==='P'?' selected':''}>🟢 방지</option>
+        <option value="D"${(d.ac_on||'P')==='D'?' selected':''}>🔵 감지</option>
+        <option value="I"${(d.ac_on||'P')==='I'?' selected':''}>⬛ 정지</option>
+      </select>
+      <input type="number" id="aconmin-${d.id}" class="ac-min" min="1" max="240" value="${d.ac_onmin||10}"/>
+      <span class="ac-unit">분 후</span>
+    </div>
+    <div class="ac-row">
+      <label>↳ <b style="color:#0af">다음</b> 동작</label>
+      <select id="aconnext-${d.id}" class="ac-sel">
+        <option value="D"${(d.ac_onnext||'D')==='D'?' selected':''}>🔵 감지</option>
+        <option value="P"${(d.ac_onnext||'D')==='P'?' selected':''}>🟢 방지</option>
+        <option value="I"${(d.ac_onnext||'D')==='I'?' selected':''}>⬛ 정지</option>
+      </select>
+      <span class="ac-min" style="visibility:hidden"></span>
+      <span class="ac-unit">(A/C ON 유지 시)</span>
+    </div>
+    <div class="ac-row">
+      <label>A/C <b style="color:#f90">OFF</b> 후</label>
+      <select id="acoff-${d.id}" class="ac-sel">
+        <option value="D"${(d.ac_off||'D')==='D'?' selected':''}>🔵 감지</option>
+        <option value="P"${(d.ac_off||'D')==='P'?' selected':''}>🟢 방지</option>
+        <option value="I"${(d.ac_off||'D')==='I'?' selected':''}>⬛ 정지</option>
+      </select>
+      <input type="number" id="acoffmin-${d.id}" class="ac-min" min="1" max="240" value="${d.ac_offmin||20}"/>
+      <span class="ac-unit">분 후 딥슬립</span>
+    </div>
+    <button class="btn-ac-save" onclick="saveAc('${d.id}')">💾 A/C 설정 저장</button>
+    <div class="ac-note">ON → 지정시간 동작 후 다음동작 전환 · OFF → 지정시간 동작 후 완전 꺼짐(딥슬립) · A/C ON 시 깨어남</div>
+  </div>
+
+  <!-- Wi-Fi 설정 -->
+  <div class="sec">Wi-Fi 설정</div>
+  <div class="wifi-form">
+    <div><input type="text" id="wssid-${d.id}" placeholder="SSID"/></div>
+    <div><input type="password" id="wpw-${d.id}" placeholder="비밀번호"/></div>
+    <button class="btn-wifi" onclick="sendWifi('${d.id}')">변경</button>
+  </div>
+
+  <!-- NAS 업로드 설정 -->
+  <div class="sec">NAS 업로드 설정 (WebDAV)</div>
+  <div class="nas-form">
+    <input type="text" id="nbase-${d.id}" placeholder="서버 주소 (예: https://xxx.synology.me:5006)" value="${esc(nc.base)}"/>
+    <input type="text" id="ndir-${d.id}" placeholder="저장 경로 (예: /감지센서)" value="${esc(nc.dir)}"/>
+    <div class="nas-row2">
+      <input type="text" id="nuser-${d.id}" placeholder="아이디" value="${esc(nc.user)}"/>
+      <input type="password" id="npw-${d.id}" placeholder="비밀번호" value="${esc(nc.pass)}"/>
+    </div>
+    <div class="nas-btns">
+      <button class="btn-nas-save" onclick="saveNas('${d.id}')">💾 NAS 정보 저장</button>
+      <button class="btn-nas-up" onclick="manualUpload('${d.id}')">☁ 지금 수동 업로드</button>
+    </div>
+    <div class="nas-note">※ 전원 인가(부팅) 시 이전 세션 데이터가 NAS로 자동 업로드됩니다</div>
+  </div>
+
+  <!-- 파일 브라우저 -->
+  <div class="sec">기기 내 파일</div>
+  <div class="file-panel" id="fpanel-${d.id}">
+    <div class="file-panel-head" onclick="toggleFiles('${d.id}')">
+      <span>📂 파일 목록</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn-frefresh" onclick="event.stopPropagation();fetchFiles('${d.id}')">새로고침</button>
+        <span class="fp-toggle" id="ftog-${d.id}">▼ 열기</span>
+      </div>
+    </div>
+    <div id="flist-${d.id}" style="display:none">
+      <div class="file-empty">▼ 열기를 클릭하거나 새로고침을 누르세요</div>
+    </div>
+  </div>
+
+  <!-- 기타 -->
+  <div class="sec">기타</div>
+  <div class="misc-btns">
+    <button class="btn-misc" onclick="changeName('${d.id}')">✏ 기기명 변경</button>
+    <button class="btn-misc" onclick="openWeb('${d.id}')">🌐 웹서버 (IP 접속)</button>
+    <button class="btn-misc" onclick="openOta('${d.id}')">🔄 OTA</button>
+    <button class="btn-misc" id="btnpwr-${d.id}" style="color:#f33;border-color:#f33;grid-column:1/-1" onclick="powerOff('${d.id}')">${d.poweroff?'▶ 다시 켜기':'⏻ 완전 꺼짐'}</button>
+    <button class="btn-misc" style="color:#f60;border-color:#f60;grid-column:1/-1" onclick="enterMscMode('${d.id}')">💾 USB 저장소 모드 (MSC)</button>
+  </div>
+
+  <div class="ts" id="cts-${d.id}">마지막 수신: ${now()}</div>`;
+}
+
+// ── 제어 버튼 HTML ────────────────────────────────────────────
+function buildCtrlBtns(d) {
+  const isT   = d.mode === 'TRANSITION';
+  const isDet = d.mode === 'DETECT';
+  const isPrv = d.mode === 'PREVENT';
+  const isIdle= d.mode === 'IDLE' || !d.mode;
+  return `
+    <button class="btn btn-detect${isDet?' active':''}" onclick="sendCmd('${d.id}','DETECT_START')"
+      ${isT?'disabled':''}>🔵 감지 시작</button>
+    <button class="btn btn-prevent${isPrv?' active':''}" onclick="sendCmd('${d.id}','PREVENT_START')"
+      ${isT?'disabled':''}>🟢 방지 시작</button>
+    <button class="btn btn-stop${isIdle?' active':''}" onclick="stopMode('${d.id}')"
+      ${isIdle&&!isT?'disabled':''}>⬛ 정지</button>`;
+}
+
+// ── 측정값 HTML ───────────────────────────────────────────────
+function buildMeas(d) {
+  if (d.mode !== 'DETECT') return '';
+  return `
+    <div class="sec">측정값</div>
+    <div class="meas-grid">
+      <div class="meas-box"><div class="meas-lbl">전압 Vt</div>
+        <div class="meas-val val-b">${n(d.vt,3)}<span style="font-size:.65em;color:#555"> V</span></div></div>
+      <div class="meas-box"><div class="meas-lbl">전류 It</div>
+        <div class="meas-val val-g">${n(d.it,6)}<span style="font-size:.65em;color:#555"> A</span></div></div>
+    </div>`;
+}
+
+// ── 카드 갱신 ─────────────────────────────────────────────────
+function refreshCard(id, d) {
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+
+  // 카드 테두리
+  card.className = 'card' +
+    (d.mode==='DETECT' ? ' s-detect' : d.mode==='PREVENT' ? ' s-prevent' :
+     d.mode==='TRANSITION' ? ' s-trans' : '');
+
+  // 기기 시간
+  safeSet('devtime-' + id, el => el.textContent = d.time || '—');
+
+  // 완전 꺼짐 버튼 라벨 토글
+  safeSet('btnpwr-' + id, el => el.textContent = d.poweroff ? '▶ 다시 켜기' : '⏻ 완전 꺼짐');
+
+  // 상태 표시판
+  const sp = spClass(d);
+  safeSet('spanel-'  + id, el => el.className = 'state-panel ' + sp);
+  safeSet('sicon-'   + id, el => el.textContent = stateIcon(d));
+  safeSet('sname-'   + id, el => el.textContent = stateKo(d));
+  safeSet('ssub-'    + id, el => el.textContent = stateSub(d));
+  safeSet('srem-'    + id, el => el.textContent = stateRem(d));
+  safeSet('spct-'    + id, el => el.textContent = statePct(d));
+  safeSet('progfill-'+ id, el => { el.className = 'prog-fill ' + pfClass(d); el.style.width = progW(d) + '%'; });
+
+  // 현재 설정 요약 (방지 출력 레벨 + A/C 연동)
+  safeSet('sdvpp-' + id, el => el.textContent = `VDC ${(d.vdc||0.7).toFixed(2)}V · Vpp ${((d.vdc||0.7)*2).toFixed(2)}V`);
+  safeSet('sdac-'  + id, el => el.textContent = acSummary(d));
+
+  // 제어 버튼
+  safeSet('ctrlbtns-' + id, el => el.innerHTML = buildCtrlBtns(d));
+
+  // 측정값
+  safeSet('measwrap-' + id, el => el.innerHTML = buildMeas(d));
+
+  // VDC 현재값 표시 (슬라이더 직접 조작 중엔 건드리지 않음)
+  const sl = document.getElementById('vsl-' + id);
+  if (sl && document.activeElement !== sl) {
+    sl.value = (d.vdc || 0.7).toFixed(1);
+    safeSet('svdc-' + id, el => el.textContent = (d.vdc||0.7).toFixed(2) + 'V');
+    safeSet('svpp-' + id, el => el.textContent = ((d.vdc||0.7)*2).toFixed(2) + ' V');
+  }
+
+  // 메타
+  safeSet('cmeta-' + id, el => el.textContent = `${d.id} · FW:${d.fw||'?'} · ${d.ssid||''} · ${d.ip||''}`);
+
+  // 타임스탬프
+  safeSet('cts-' + id, el => el.textContent = '마지막 수신: ' + now());
+}
+
+// ── 상태 헬퍼 ─────────────────────────────────────────────────
+function spClass(d) {
+  if (d.mode==='DETECT')     return 'sp-detect';
+  if (d.mode==='PREVENT')    return 'sp-prevent';
+  if (d.mode==='TRANSITION') return 'sp-trans';
+  return 'sp-idle';
+}
+function pfClass(d) {
+  if (d.mode==='DETECT')     return 'pf-detect';
+  if (d.mode==='PREVENT')    return 'pf-prevent';
+  if (d.mode==='TRANSITION') return 'pf-trans';
+  return '';
+}
+function stateIcon(d) {
+  if (d.poweroff)            return '⏻';
+  if (d.mode==='DETECT')     return '🔵';
+  if (d.mode==='PREVENT')    return '🟢';
+  if (d.mode==='TRANSITION') return '🟡';
+  return '⚫';
+}
+function stateKo(d) {
+  if (d.poweroff)            return '완전 꺼짐';
+  if (d.mode==='DETECT')     return d.nolog ? '감지중(출력만)' : '감 지 중';
+  if (d.mode==='PREVENT')    return '방 지 중';
+  if (d.mode==='TRANSITION') return '전 환 중';
+  return '정 지';
+}
+function schedNxKo(nx) {
+  // "13:01 P" → "13:01 방지"
+  if (!nx) return '';
+  const a = nx.slice(-1);
+  const ko = a==='D'?'감지':a==='O'?'감지(출력)':a==='P'?'방지':a==='I'?'정지':'';
+  return nx.slice(0,-1).trim() + ' ' + ko;
+}
+function stateSub(d) {
+  if (d.poweroff) return '완전 꺼짐 — 출력 정지·시간표 중단 (Wi-Fi 유지)';
+  let base;
+  if (d.mode==='DETECT')          base = d.nolog ? 'DETECT — 출력만 (CSV 미기록)' : 'DETECT — 전압/전류 측정 · CSV 로깅';
+  else if (d.mode==='PREVENT')    base = 'PREVENT — TMZ 출력 중';
+  else if (d.mode==='TRANSITION') base = '출력 전환 대기 중 (3초)';
+  else                            base = '대기 중';
+  if (d.nx && d.mode!=='TRANSITION') base += ' · 다음 ' + schedNxKo(d.nx);
+  return base;
+}
+function stateRem(d) {
+  if (d.poweroff) return '—';
+  if (d.mode==='TRANSITION') return (d.trans_rem > 0 ? (d.trans_rem/1000).toFixed(1) + 's' : '—');
+  return fmtMs(d.seg_rem);   // 다음 이벤트까지 남은 시간
+}
+function statePct(d) {
+  if (d.mode==='TRANSITION' && d.trans_rem > 0) return Math.round(d.trans_rem / 3000 * 100) + '%';
+  if (d.seg_len > 0 && d.seg_rem >= 0) return progW(d) + '%';
+  return '';
+}
+function progW(d) {
+  if (d.poweroff) return 0;
+  if (d.mode==='TRANSITION') return d.trans_rem > 0 ? Math.round(d.trans_rem/3000*100) : 0;
+  if (d.seg_len > 0 && d.seg_rem >= 0) {
+    const done = d.seg_len - d.seg_rem;
+    return Math.max(0, Math.min(100, Math.round(done / d.seg_len * 100)));
+  }
+  return 0;
+}
+
+// ── 명령 함수 ─────────────────────────────────────────────────
+function stopMode(id) {
+  const d = devices[id]; if (!d) return;
+  if (d.mode==='DETECT')     sendCmd(id, 'DETECT_STOP');
+  else if (d.mode==='PREVENT')    sendCmd(id, 'PREVENT_STOP');
+  else if (d.mode==='TRANSITION') { sendCmd(id, 'DETECT_STOP'); sendCmd(id, 'PREVENT_STOP'); }
+}
+
+function applyVpset(id) {
+  const sl = document.getElementById('vsl-' + id); if (!sl) return;
+  const v = parseFloat(sl.value);
+  if (isNaN(v) || v < 0.05 || v > 1.50) { alert('VDC 범위: 0.05V ~ 1.50V'); return; }
+  if (!confirm(`VDC = ${v.toFixed(2)}V\nVpp = ${(v*2).toFixed(2)}V\n\n적용하시겠습니까?`)) return;
+  sendCmd(id, 'VPSET:' + v.toFixed(2));
+}
+
+// ── A/C 연동 동작 설정 (차량용) ───────────────────────────────
+// ACSET:<onAct>,<onMin>,<onNext>,<offAct>,<offMin>  (동작=P방지/D감지/I정지, 분=1~240)
+//   ON  → onAct 를 onMin분 동작 후 onNext 로 전환(A/C ON 유지 시)
+//   OFF → offAct 를 offMin분 동작 후 완전 꺼짐(딥슬립)
+function saveAc(id) {
+  const on     = document.getElementById('acon-'+id).value;
+  const onmin  = parseInt(document.getElementById('aconmin-'+id).value, 10) || 0;
+  const next   = document.getElementById('aconnext-'+id).value;
+  const off    = document.getElementById('acoff-'+id).value;
+  const offmin = parseInt(document.getElementById('acoffmin-'+id).value, 10) || 0;
+  if (onmin < 1 || onmin > 240)  { alert('A/C ON 동작 지속 시간은 1~240분'); return; }
+  if (offmin < 1 || offmin > 240){ alert('A/C OFF 동작 지속 시간은 1~240분'); return; }
+  const ko = a => a==='P'?'방지':a==='D'?'감지':'정지';
+  sendCmd(id, `ACSET:${on},${onmin},${next},${off},${offmin}`);
+  alert(`A/C 설정 저장:\n· ON  → ${ko(on)} ${onmin}분 → ${ko(next)}\n· OFF → ${ko(off)} ${offmin}분 → 완전 꺼짐(딥슬립)`);
+}
+
+function sendWifi(id) {
+  const ssid = document.getElementById('wssid-'+id).value.trim();
+  const pw   = document.getElementById('wpw-'+id).value.trim();
+  if (!ssid) { alert('SSID를 입력하세요'); return; }
+  if (!confirm(`Wi-Fi를 변경하면 기기가 재부팅됩니다.\n\nSSID: ${ssid}\n변경하시겠습니까?`)) return;
+  sendCmd(id, `WIFI:${ssid},${pw}`);
+}
+
+function changeName(id) {
+  const name = prompt('새 기기명을 입력하세요:', devices[id]?.name || id);
+  if (name && name.trim()) sendCmd(id, 'NAME:' + name.trim());
+}
+
+// ── NAS 업로드 설정 ───────────────────────────────────────────
+function nasCfg(id) {
+  try { return JSON.parse(localStorage.getItem('nas_' + id)) || {}; }
+  catch (e) { return {}; }
+}
+function saveNas(id) {
+  const base = document.getElementById('nbase-'+id).value.trim();
+  const dir  = document.getElementById('ndir-'+id).value.trim();
+  const user = document.getElementById('nuser-'+id).value.trim();
+  const pass = document.getElementById('npw-'+id).value;
+  if (!base || !dir || !user) { alert('서버 주소 / 저장 경로 / 아이디를 입력하세요'); return; }
+  if ([base,dir,user,pass].some(v => v.includes('|'))) { alert("값에 '|' 문자는 사용할 수 없습니다"); return; }
+  // 브라우저에 기억(폼 자동 채움용)
+  localStorage.setItem('nas_'+id, JSON.stringify({base,dir,user,pass}));
+  // 기기에 저장 (NVS에 영구 저장됨): NASSET:base|dir|user|pass
+  sendCmd(id, `NASSET:${base}|${dir}|${user}|${pass}`);
+  alert('NAS 정보를 기기에 저장했습니다.');
+}
+function manualUpload(id) {
+  if (!confirm('지금 저장된 CSV 로그를 NAS로 업로드합니다.\n계속하시겠습니까?')) return;
+  sendCmd(id, 'UPLOAD_ALL');
+}
+function timeSync(id) {
+  if (!confirm('기기 시간을 NTP로 동기화합니다.\n(기기가 Wi-Fi에 연결돼 있어야 합니다)\n계속하시겠습니까?')) return;
+  sendCmd(id, 'TIMESYNC');
+}
+function openOta(id) {
+  const ip = devices[id]?.ip;
+  const nc = nasCfg(id);
+  const choice = prompt(
+    'OTA 펌웨어 업데이트 방법:\n\n' +
+    '1 = 같은 Wi-Fi에서 파일 직접 업로드 (기기 웹페이지에서 .bin 선택)\n' +
+    '2 = 인터넷 원격 OTA (.bin URL에서 기기가 받아 설치)\n\n' +
+    '번호 입력:', '2');
+  if (choice === null) return;
+  const c = choice.trim();
+  if (c === '1') {
+    // 같은 Wi-Fi: 기기 /update 페이지에서 파일 직접 업로드
+    if (!ip) { alert('기기 IP를 알 수 없습니다 (같은 Wi-Fi에서만 가능)'); return; }
+    window.open('http://' + ip + '/update', '_blank');
+    return;
+  }
+  if (c === '2') {
+    // 인터넷 원격: .bin URL을 MQTT OTA 명령으로 전송 → 기기가 다운로드·설치
+    const base = (nc.base || '').replace(/\/$/, '');
+    const url = prompt(
+      '받아올 .bin 파일의 전체 URL을 입력하세요.\n' +
+      '※ 시놀로지 NAS(저장된 주소로 시작)면 NAS 계정으로 자동 인증됩니다.\n' +
+      '   다른 곳이면 인증 없이 접근 가능한 URL이어야 합니다.\n\n' +
+      '예: ' + (base ? base + '/펌웨어/car_v4.bin' : 'https://xxx.synology.me:5006/펌웨어/car_v4.bin'),
+      base ? base + '/' : 'https://');
+    if (!url || !url.trim()) return;
+    if (!confirm('원격 OTA를 시작합니다.\n기기가 펌웨어를 받아 설치 후 자동 재부팅됩니다.\n\nURL:\n' + url.trim())) return;
+    sendCmd(id, 'OTA:' + url.trim());
+    alert('OTA 명령 전송 완료.\n기기가 다운로드·설치 후 재부팅합니다 (수십 초~1분).\n잠시 후 카드가 새 버전으로 다시 접속되는지 확인하세요.');
+    return;
+  }
+  alert('1 또는 2를 입력하세요.');
+}
+
+function openWeb(id) {
+  const ip = devices[id]?.ip;
+  if (!ip) { alert('기기 IP를 알 수 없습니다 (같은 Wi-Fi에서만 접속 가능)'); return; }
+  window.open('http://' + ip + '/', '_blank');
+}
+
+function powerOff(id) {
+  // 차량용: 완전 꺼짐 = 딥슬립 (Wi-Fi 포함 전부 차단). 원격 복귀 불가.
+  if (!confirm(
+    '⏻ 완전 꺼짐 (딥슬립)\n\n' +
+    '모든 출력·Wi-Fi·MQTT가 차단되어 최소 전류로 잠듭니다.\n' +
+    '복귀 방법:\n' +
+    ' • A/C 신호 ON (IO17 HIGH) 수신 시 자동으로 깨어남\n' +
+    ' • 또는 RESET 버튼 / 전원 재인가\n\n' +
+    '※ 잠들면 대시보드에서 사라지고 원격 제어 불가(물리 신호/전원 필요).\n' +
+    '계속하시겠습니까?'
+  )) return;
+  sendCmd(id, 'POWEROFF');
+}
+
+function enterMscMode(id) {
+  if (!confirm(
+    '⚠ USB 저장소 모드 진입\n\n' +
+    '기기가 재부팅되고 USB 저장소로 연결됩니다.\n' +
+    '진입 후 Wi-Fi / MQTT 연결이 끊어집니다.\n' +
+    '복구하려면 기기 전원을 껐다 켜세요.\n\n' +
+    '계속하시겠습니까?'
+  )) return;
+  sendCmd(id, 'MSC');
+}
+
+// ── 파일 브라우저 ─────────────────────────────────────────────
+function toggleFiles(id) {
+  fileOpen[id] = !fileOpen[id];
+  const fl = document.getElementById('flist-' + id);
+  const tog = document.getElementById('ftog-' + id);
+  if (!fl || !tog) return;
+  fl.style.display = fileOpen[id] ? '' : 'none';
+  tog.textContent = fileOpen[id] ? '▲ 닫기' : '▼ 열기';
+  if (fileOpen[id]) fetchFiles(id);
+}
+
+function fetchFiles(id) {
+  const ip = devices[id]?.ip;
+  const fl = document.getElementById('flist-' + id);
+  if (!fl) return;
+  if (!ip) { fl.innerHTML = '<div class="file-err">⚠ IP 주소를 알 수 없습니다</div>'; return; }
+
+  fl.innerHTML = '<div class="file-empty">불러오는 중...</div>';
+  fileOpen[id] = true;
+  const tog = document.getElementById('ftog-' + id);
+  if (tog) tog.textContent = '▲ 닫기';
+  document.getElementById('flist-' + id).style.display = '';
+
+  // 기기 웹서버에서 파일 목록 JSON 요청
+  fetch('http://' + ip + '/filelist', { signal: AbortSignal.timeout(5000) })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(files => renderFiles(id, ip, files))
+    .catch(e => {
+      // JSON 실패 시 웹 UI 링크만 제공
+      fl.innerHTML = `
+        <div class="file-err">
+          기기 직접 접속이 필요합니다 (CORS 또는 HTTP 제한)<br>
+          <a href="http://${ip}/" target="_blank" style="color:#0af">
+            → http://${ip}/ 에서 파일 브라우저 열기
+          </a>
+        </div>`;
+    });
+}
+
+function renderFiles(id, ip, files) {
+  const fl = document.getElementById('flist-' + id);
+  if (!fl) return;
+  if (!files || !files.length) {
+    fl.innerHTML = '<div class="file-empty">파일 없음</div>'; return;
+  }
+  fl.innerHTML = files.map(f => `
+    <div class="file-item">
+      <a class="file-name" href="http://${ip}/download?file=${encodeURIComponent(f.name)}" target="_blank">
+        📄 ${esc(f.name)}
+      </a>
+      <span class="file-size">${fmtSize(f.size)}</span>
+    </div>`).join('');
+}
+
+// ── 슬라이더 바인딩 ───────────────────────────────────────────
+function bindSlider(id) {
+  const sl = document.getElementById('vsl-' + id);
+  if (!sl) return;
+  sl.addEventListener('input', () => {
+    const v = parseFloat(sl.value);
+    safeSet('svdc-' + id, el => el.textContent = v.toFixed(2) + 'V');
+    safeSet('svpp-' + id, el => el.textContent = (v*2).toFixed(2) + ' V');
+  });
+}
+
+// ── 유틸 ──────────────────────────────────────────────────────
+function fmtMs(ms) {
+  if (ms == null || ms < 0) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function calcPct(rem, durMin) {
+  if (rem == null || rem < 0 || !durMin) return 0;
+  return Math.min(100, Math.round(rem / (durMin * 60000) * 100));
+}
+function fmtSize(b) {
+  if (!b) return '—';
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b/1024).toFixed(1) + 'KB';
+  return (b/1048576).toFixed(1) + 'MB';
+}
+function n(v, d) { return (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d); }
+function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function safeSet(id, fn) { const el = document.getElementById(id); if (el) try { fn(el); } catch(e){} }
+function now()   { return new Date().toLocaleTimeString('ko-KR'); }
+
+// 자동 연결
+connectMQTT();
+</script>
+</body>
+</html>
